@@ -1,3 +1,5 @@
+extern crate xmltree;
+
 use std::borrow::Cow;
 use std::fs::File;
 use std::io::Cursor;
@@ -259,4 +261,117 @@ fn test_decl() {
     let mut output = Vec::new();
     e.write_with_config(&mut output, c).unwrap();
     assert_eq!(String::from_utf8(output).unwrap(), "<?xml version=\"1.0\" encoding=\"UTF-8\"?><n />");
+}
+
+#[test]
+fn test_pre_order_dft_xmlnode() {
+    let nodes: Vec<XMLNode> = parse_all(File::open("tests/data/dft.xml").unwrap()).unwrap();
+    let root_node = nodes.get(0).expect("no root node");
+
+    let pre_order_nodes = root_node.dft_pre_order(None);
+    let collected_nodes = pre_order_nodes.collect::<Vec<&XMLNode>>();
+    
+    assert_eq!(collected_nodes.len(), 5);
+    assert_eq!(collected_nodes.get(0).unwrap().as_element().unwrap().name, "a");
+    assert_eq!(collected_nodes.get(1).unwrap().as_element().unwrap().name, "b");
+    assert_eq!(collected_nodes.get(2).unwrap().as_element().unwrap().name, "c");
+    assert_eq!(collected_nodes.get(3).unwrap().as_element().unwrap().name, "b");
+    assert_eq!(collected_nodes.get(4).unwrap().as_element().unwrap().name, "c");
+}
+
+#[test]
+fn test_pre_order_dft_early_stop_xmlnode() {
+    let nodes: Vec<XMLNode> = parse_all(File::open("tests/data/dft.xml").unwrap()).unwrap();
+    let root_node = nodes.get(0).expect("no root node");
+
+    let pre_order_nodes = root_node.dft_pre_order(Some(|node| node.as_element().unwrap().name == "b"));
+    let collected_nodes = pre_order_nodes.collect::<Vec<&XMLNode>>();
+    
+    assert_eq!(collected_nodes.len(), 4);
+    assert_eq!(collected_nodes.get(0).unwrap().as_element().unwrap().name, "a");
+    assert_eq!(collected_nodes.get(1).unwrap().as_element().unwrap().name, "b");
+    assert_eq!(collected_nodes.get(2).unwrap().as_element().unwrap().name, "b");
+    assert_eq!(collected_nodes.get(3).unwrap().as_element().unwrap().name, "c");
+}
+
+#[test]
+fn test_post_order_dft_xmlnode() {
+    let nodes: Vec<XMLNode> = parse_all(File::open("tests/data/dft.xml").unwrap()).unwrap();
+    let root_node = nodes.get(0).expect("no root node");
+
+    let post_order_nodes = root_node.dft_post_order(None);
+    let collected_nodes = post_order_nodes.collect::<Vec<&XMLNode>>();
+    
+    assert_eq!(collected_nodes.len(), 5);
+    assert_eq!(collected_nodes.get(0).unwrap().as_element().unwrap().name, "c");
+    assert_eq!(collected_nodes.get(1).unwrap().as_element().unwrap().name, "b");
+    assert_eq!(collected_nodes.get(2).unwrap().as_element().unwrap().name, "b");
+    assert_eq!(collected_nodes.get(3).unwrap().as_element().unwrap().name, "c");
+    assert_eq!(collected_nodes.get(4).unwrap().as_element().unwrap().name, "a");
+}
+
+#[test]
+fn test_post_order_dft_early_stop_xmlnode() {
+    let nodes: Vec<XMLNode> = parse_all(File::open("tests/data/dft.xml").unwrap()).unwrap();
+    let root_node = nodes.get(0).expect("no root node");
+
+    fn predicate(node: &XMLNode) -> bool {
+        node.as_element().unwrap().name == "b"
+    }
+
+    let post_order_nodes = root_node.dft_post_order(Some(predicate));
+    let collected_nodes = post_order_nodes.collect::<Vec<&XMLNode>>();
+    
+    assert_eq!(collected_nodes.len(), 4);
+    assert_eq!(collected_nodes.get(0).unwrap().as_element().unwrap().name, "b");
+    assert_eq!(collected_nodes.get(1).unwrap().as_element().unwrap().name, "b");
+    assert_eq!(collected_nodes.get(2).unwrap().as_element().unwrap().name, "c");
+    assert_eq!(collected_nodes.get(3).unwrap().as_element().unwrap().name, "a");
+}
+
+#[test]
+fn test_pre_order_dft_early_stop_element() {
+    let root_node: Element = parse(File::open("tests/data/dft.xml").unwrap()).unwrap();
+
+    let pre_order_nodes = root_node.dft_pre_order(Some(|node| node.name == "b"));
+    let collected_nodes = pre_order_nodes.collect::<Vec<&Element>>();
+    
+    assert_eq!(collected_nodes.len(), 4);
+    assert_eq!(collected_nodes.get(0).unwrap().name, "a");
+    assert_eq!(collected_nodes.get(1).unwrap().name, "b");
+    assert_eq!(collected_nodes.get(2).unwrap().name, "b");
+    assert_eq!(collected_nodes.get(3).unwrap().name, "c");
+}
+
+#[test]
+fn test_post_order_dft_element() {
+    let root_node: Element = parse(File::open("tests/data/dft.xml").unwrap()).unwrap();
+
+    let post_order_nodes = root_node.dft_post_order(None);
+    let collected_nodes = post_order_nodes.collect::<Vec<&Element>>();
+    
+    assert_eq!(collected_nodes.len(), 5);
+    assert_eq!(collected_nodes.get(0).unwrap().name, "c");
+    assert_eq!(collected_nodes.get(1).unwrap().name, "b");
+    assert_eq!(collected_nodes.get(2).unwrap().name, "b");
+    assert_eq!(collected_nodes.get(3).unwrap().name, "c");
+    assert_eq!(collected_nodes.get(4).unwrap().name, "a");
+}
+
+#[test]
+fn test_post_order_dft_early_stop_element() {
+    let root_node: Element = parse(File::open("tests/data/dft.xml").unwrap()).unwrap();
+
+    fn predicate(node: &Element) -> bool {
+        node.name == "b"
+    }
+
+    let post_order_nodes = root_node.dft_post_order(Some(predicate));
+    let collected_nodes = post_order_nodes.collect::<Vec<&Element>>();
+    
+    assert_eq!(collected_nodes.len(), 4);
+    assert_eq!(collected_nodes.get(0).unwrap().name, "b");
+    assert_eq!(collected_nodes.get(1).unwrap().name, "b");
+    assert_eq!(collected_nodes.get(2).unwrap().name, "c");
+    assert_eq!(collected_nodes.get(3).unwrap().name, "a");
 }
